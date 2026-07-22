@@ -1,5 +1,17 @@
 # Tiktok Comments Scraper
 
+> **⚠️ Known issue: the backend scraper no longer works.**
+> `backend/script2.py` calls TikTok's private comment API with hardcoded
+> signing tokens (`msToken`/`X-Bogus`/`_signature`) that are long expired.
+> TikTok now validates these against a live, non-automated browser session,
+> so this fails whether you refresh the tokens, replay the request with a
+> plain HTTP client, or drive a headless/automated browser (e.g.
+> Playwright/Selenium) — all were tested and blocked.
+>
+> A working alternative that runs entirely in your own browser (no backend
+> needed) is provided in [`tools/extract-comments.js`](tools/extract-comments.js) —
+> see the usage comment at the top of that file.
+
 ## Overview
 
 This project is built using Python and React

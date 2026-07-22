@@ -1,55 +1,84 @@
 import { useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Card from "./components/Card";
+import ExcelWorkflow from "./components/ExcelWorkflow";
+import CONSOLE_SCRIPT from "./consoleScript";
 
 function App() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [postUrl, setPostUrl] = useState("");
   const [comments, setComments] = useState([]);
+  const [fileName, setFileName] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const fetchComments = async () => {
-    if (!postUrl) {
-      toast.error("Url Required");
+  const handleCopyScript = async () => {
+    try {
+      await navigator.clipboard.writeText(CONSOLE_SCRIPT);
+      toast.success("คัดลอกสคริปต์แล้ว");
+    } catch (err) {
+      toast.error("คัดลอกไม่สำเร็จ");
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        throw new Error("Invalid format");
+      }
+      setComments(parsed);
+      setFileName(file.name);
+      toast.success("อ่านไฟล์สำเร็จ");
+    } catch (err) {
+      toast.error("ไฟล์ไม่ถูกต้อง (ต้องเป็น comments.json ที่ได้จากสคริปต์)");
+      setComments([]);
+      setFileName("");
+    }
+  };
+
+  const handleGenerateExcel = async () => {
+    if (comments.length === 0) {
+      toast.error("ยังไม่มีคอมเมนต์");
       return;
     }
-    setIsLoading(true);
+    setIsGenerating(true);
     try {
-      const response = await fetch(import.meta.env.VITE_API_URL + "/comments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ post_url: postUrl }),
-      });
-      const data = await response.json();
+      const response = await fetch(
+        import.meta.env.VITE_API_URL + "/generate-excel",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ comments }),
+        }
+      );
 
-      setComments(data.comments);
+      if (!response.ok) {
+        throw new Error("Request failed");
+      }
 
-      toast.success("Success");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "comments.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("สร้างไฟล์ Excel สำเร็จ");
     } catch (error) {
-      console.error("Error fetching comments:", error);
-      toast.error("Something went wrong");
+      console.error("Error generating excel:", error);
+      toast.error("สร้างไฟล์ไม่สำเร็จ");
     }
-    setIsLoading(false);
+    setIsGenerating(false);
   };
 
   const handleReset = () => {
     setComments([]);
-    setPostUrl("");
-  };
-
-  const handleCopy = async () => {
-    if (comments) {
-      try {
-        await navigator.clipboard.writeText(comments);
-        toast.success("copied");
-      } catch (err) {
-        toast.error("Failed to copy");
-      }
-    } else {
-      toast.error("Nothing to copy");
-    }
+    setFileName("");
   };
 
   return (
@@ -57,14 +86,14 @@ function App() {
       <ToastContainer />
       <div className="w-full h-screen flex flex-col justify-center items-center">
         <div className="container">
-          <Card
+          <ExcelWorkflow
             comments={comments}
-            isLoading={isLoading}
-            fetchComments={fetchComments}
-            postUrl={postUrl}
-            setPostUrl={setPostUrl}
+            fileName={fileName}
+            isGenerating={isGenerating}
+            handleCopyScript={handleCopyScript}
+            handleFileChange={handleFileChange}
+            handleGenerateExcel={handleGenerateExcel}
             handleReset={handleReset}
-            handleCopy={handleCopy}
           />
         </div>
       </div>
